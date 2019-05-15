@@ -1,0 +1,30 @@
+{
+    "version": "0.1.0",
+    "name": "engeo",
+    "url": "",
+    "license": "MIT License",
+    "author": "",
+    "author_email": "aliaksandr.yakutovich@epfl.ch",
+    "description": "## PUT DESCRIPTION ##",
+    "classifiers": [
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Development Status :: 4 - Beta"
+    ],
+    "install_requires": [
+    ],
+    "data_files": [
+        [".", ["setup.json"]]
+    ],
+    "extras_require": {
+	    "pre-commit":[
+		    "pre-commit==1.14.4",
+		    "yapf==0.26.0",
+		    "prospector==1.1.5",
+		    "pylint==1.9.4; python_version<'3.0'",
+		    "pylint==2.2.2; python_version>='3.0'"
+	    ]
+    }
+}
