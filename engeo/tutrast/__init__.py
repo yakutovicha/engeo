@@ -9,8 +9,11 @@ class TuTrast:
 	EV_TO_HARTREE = 0.03674930495120813
 	def __init__(self, data, step=0.1, units='kcal/mol'):
 
+		data = np.copy(data)
 		# dealing with units
-		if units == 'kcal/mol':
+		if units == 'a.u.':
+			conversion = 1.0
+		elif units == 'kcal/mol':
 			conversion = self.KCAL_MOL_TO_HARTREE
 		elif units == 'kJ/mol':
 			conversion = self.KJ_MOL_TO_HARTREE
