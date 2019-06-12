@@ -3,7 +3,7 @@
 from __future__ import print_function
 import numpy as np
 
-class TuTrast:
+class TuTraSt:
 	KCAL_MOL_TO_HARTREE = 0.00159360109742136
 	KJ_MOL_TO_HARTREE = 0.0003808798033989866
 	EV_TO_HARTREE = 0.03674930495120813
