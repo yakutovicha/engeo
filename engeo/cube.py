@@ -25,7 +25,7 @@ def read_cube(fname):
     """
     meta = {}
     with open(fname, 'r') as cube:
-        cube.readline(); cube.readline()  # ignore comments
+        cube.readline(); cube.readline() # ignore comments 
         natm, meta['org'] = _getline(cube)
         nx, meta['xvec'] = _getline(cube)
         ny, meta['yvec'] = _getline(cube)

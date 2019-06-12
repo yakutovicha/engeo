@@ -41,3 +41,43 @@ def test_get_neighbors():
 	# checking that the neighbours of the particular cube file
 	# of the zeroth entry are correctly found 
 	assert (ttst.get_neighbors(bassin=[0]) == nbrs).all()
+
+
+	#the following test fails, no matter whether no, one or two lines of [1, 1, 0] are included
+	#data, meta = read_cube("test/Cube_z_1.cube")
+	#ttst = TuTrast(data)
+	#nbrs = np.array([[1, 1, 0],
+	#   [1, 0, 1],
+    #   [1, 2, 1],
+    #   [0, 1, 0],
+    #   [2, 1, 0]])
+
+	# checking that the neighbours of the particular 2D cube file 
+	# of the (1,1,0) entry are correctly found 
+	#assert (ttst.get_neighbors(bassin=[0]) == nbrs).all()
+
+	data, meta = read_cube("test/Cube_z_2.cube")
+	ttst = TuTrast(data)
+	nbrs = np.array([[0, 0, 1],
+      [0, 1, 0],
+      [0, 3, 0],
+      [1, 0, 0],
+      [2, 0, 0]])
+
+	# checking that the neighbours of the particular 2D cube file 
+	# of the zeroth entry are correctly found although the z-neighbour is found twice
+	assert (ttst.get_neighbors(bassin=[0]) == nbrs).all()
+
+
+	# FAILS so far for an unknown reason
+	#data, meta = read_cube("test/Cube_z2_11.cube")
+	#ttst = TuTrast(data)
+	#nbrs = np.array([[1, 1, 1],
+    #  [1, 0, 0],
+    #  [1, 2, 0],
+    #  [0, 1, 0],
+    #  [2, 1, 0]])
+
+	# checking that the neighbours of the particular 2D cube file 
+	# of the zeroth entry are correctly found 
+	#assert (ttst.get_neighbors(bassin=[0]) == nbrs).all()
