@@ -7,6 +7,7 @@ import numpy as np
 class Basin:
     """Class that works with basins. It only deals with the basin's geometry. Does not know
     anything about the data stored in it."""
+    neighbor_operations = [(0,  1), (0, -1), (1,  1), (1, -1), (2,  1), (2, -1)]
     def __init__(self, indeces, shape, sorted_coordinates, coordinates_to_indices):
         self.indeces = set(indeces)
         self.do_not_have_all_neighbors = set(indeces)
@@ -15,66 +16,29 @@ class Basin:
         self.z_size = shape[2]
         self.coordinates_to_indices = coordinates_to_indices
         self.sorted_coordinates = sorted_coordinates
-        self.update_neighbors()
 
-    def add_indeces(self, indeces):
-        #print("Adding indeces")
+    def append(self, indeces):
         self.indeces.update(indeces)
-        self.do_not_have_all_neighbors.update(indeces)
-        self.update_neighbors()
 
-    def update_neighbors(self):
-        """Function that updates do_not_have_all_neighbors set, i.e. removes the elements that already
-        have all the neighbors."""
-        to_remove = []
-        opns = [(0,  1), (0, -1), (1,  1), (1, -1), (2,  1), (2, -1)]
-        print("size of do_not_have_all_neighbors", len(self.do_not_have_all_neighbors))
-        for point in self.do_not_have_all_neighbors:
-            # getting the first point
-            point_coords = self.sorted_coordinates[point]
-            # getting its neighbors's coordinates
-            neighbors_coords = np.array([point_coords] * 6)
-            for i in range(6):
-                neighbors_coords[i][opns[i][0]] += opns[i][1]
-                    # apply periodic boundary conditions (PBC)
-            neighbors_coords[:,0] %= self.x_size
-            neighbors_coords[:,1] %= self.y_size
-            neighbors_coords[:,2] %= self.z_size
+    def choose_neighbors_from_list(self, points):
+        chosen = []
+        for indx, pnt in enumerate(points):
+            if self.neighbors(pnt) & self.indeces: # if neighbors of a point and elements of the basin have points in
+            # common, then the point is at the border of the basin
+                chosen.append(indx)
+        return points[chosen], np.delete(points, chosen)
 
-            # looping over the point's neighbors and checking whether they are already in the basin
-            for indx in self.coordinates_to_indices(neighbors_coords):
-                if indx not in self.indeces:
-                    break
-            else:
-                to_remove.append(point)
-        for point in to_remove:
-            self.do_not_have_all_neighbors.remove(point)
+    def neighbors(self, point):
+        point_coords = self.sorted_coordinates[point]
+        neighbors_coords = np.array([point_coords] * 6)
+        for i, opn in enumerate(self.neighbor_operations):
+            neighbors_coords[i][opn[0]] += opn[1]
 
-
-    def get_neighbors_indeces(self):
-        """Gets coordinates of the bassin neighboring points."""
-
-        # self.do_not_have_all_neighbors is a set that contains indeces of points with a not complete list of neighbors
-        #print("Len: ", len(self.do_not_have_all_neighbors), len(self.indeces))
-        bassin_points_coordinates = self.sorted_coordinates[list(self.do_not_have_all_neighbors)]
-    
-        # finding all the neighbors
-        all_neighbors = np.array([])
-        neighbor_operations = [(0,  1), (0, -1), (1,  1), (1, -1), (2,  1), (2, -1)]
-        for opn in neighbor_operations:
-            new_nbrs = np.copy(bassin_points_coordinates)
-            new_nbrs[:,opn[0]] += opn[1]
-            all_neighbors = np.append(all_neighbors, new_nbrs, axis=0) if all_neighbors.size > 0 else new_nbrs
         # apply periodic boundary conditions (PBC)
-        all_neighbors[:,0] %= self.x_size
-        all_neighbors[:,1] %= self.y_size
-        all_neighbors[:,2] %= self.z_size
-
-        #print ("all neighbors", all_neighbors)
-        #print("self.indeces", self.indeces)
-        #print("to_indeces:", self.coordinates_to_indices(all_neighbors))
-        # returning only the indeces that are not present in the basin indeces and making sure they are unique
-        return {i for i in self.coordinates_to_indices(all_neighbors) if i not in self.indeces}
+        neighbors_coords[:,0] %= self.x_size
+        neighbors_coords[:,1] %= self.y_size
+        neighbors_coords[:,2] %= self.z_size
+        return set(self.coordinates_to_indices(neighbors_coords))
 
 
 class TuTraSt:
@@ -114,16 +78,15 @@ class TuTraSt:
         # make the array of energies and array of coordinates sorted by energy.
         self.flat_e = flat_e[self.forward_indx_permutation] # apply new ordering to the energy array
         self.sorted_coordinates = coordinates[self.forward_indx_permutation] # apply the same ordering to the
+
         # coordinates array
-
-
         self.basins = [] # [[bassin 0 point flat indices], [bassin 1 point flat indices], ...]
 
     def _chunk_energy_and_indeces(self):
         index_min=0
         for i, energy in enumerate(self.flat_e):
             if energy - self.flat_e[index_min] > self.step:
-                yield self.flat_e[index_min], list(range(index_min, i))
+                yield self.flat_e[index_min], np.array(range(index_min, i))
                 index_min = i
 
 
@@ -132,31 +95,24 @@ class TuTraSt:
         # flat_indeces reference to all the energies in the range [e_current; e_current+step]
         total_len = 0
         for e_current, flat_indeces in self._chunk_energy_and_indeces():
-            flat_indeces_is_empty = False
-            # add points to the existing basins until it's possible
             n_basins = len(self.basins)
             n_points = len(flat_indeces)
             total_len += n_points
             print("n_basins", len(self.basins), "n_points", n_points, "total_points", total_len)  
-            if (total_len > 40000):
-                sys.exit(0)
+            #if (total_len > 40000):
+            #    sys.exit(0)
+
+            # add points to the existing basins until it's possible
             while True: # infinite loop
                 added_elements = False
                 for bsn in self.basins:
-                    to_add, to_delete = ([], [])
-                    neigh_indxs = bsn.get_neighbors_indeces()
-                    for i_flat, i_point in enumerate(flat_indeces):
-                        if i_point in neigh_indxs:
-                            to_delete.append(i_flat)
-                            to_add.append(i_point)
-                    if to_add:
+                    neigh_indxs, flat_indeces = bsn.choose_neighbors_from_list(flat_indeces)
+                    if neigh_indxs.size > 0:
+                        bsn.append(neigh_indxs)
                         added_elements = True
-                        bsn.add_indeces(to_add)
-                        flat_indeces = np.delete(flat_indeces, to_delete)
-                    if len(flat_indeces) == 0:
-                        flat_indeces_is_empty = True
+                    if flat_indeces.size == 0:
                         break
-                if not added_elements or flat_indeces_is_empty:
+                if not added_elements or flat_indeces.size == 0:
                     break
 
             # form clusters from the leftover elements in the flat_indeces array
@@ -170,12 +126,17 @@ class TuTraSt:
                             )
 
             # TODO: merge basins if necessary
+        tot = 0
+        for i, b in enumerate(self.basins):
+            print("basin_{} {} elements".format(i, len(b.indeces)))
+            tot += len(b.indeces)
+        print(tot)
 
     def form_clusters(self, indeces):
         """The function gets a list of point indeces and clusters them if they are neighbors.
 
-        :param indeces: list of inceces
-        :type inceces: list
+        :param indeces: list of indeces
+        :type indeces: list
         """
         
         # neighbor operations

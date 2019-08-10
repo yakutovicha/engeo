@@ -52,7 +52,7 @@ def test_coordinates_to_indices_and_back():
     coords2 = ttst.sorted_coordinates[indxs]
     assert (coords == coords2).all()
 
-def test_get_neighbors():
+def test_neighbors():
     from engeo.cube import read_cube
     from engeo.tutrast import TuTraSt, Basin
 
@@ -68,13 +68,39 @@ def test_get_neighbors():
     # of the zeroth entry are correctly found
 
     b = Basin(indeces=[0], shape=data.shape, sorted_coordinates=ttst.sorted_coordinates, coordinates_to_indices=ttst.coordinates_to_indices)
-    print(ttst.sorted_coordinates[0])
-    assert len(b.get_neighbors_indeces()) == 6
-
-    for elem in ttst.sorted_coordinates[list(b.get_neighbors_indeces())]:
+    assert len(b.neighbors(0)) == 6
+    for elem in ttst.sorted_coordinates[list(b.neighbors(0))]:
         assert elem in nbrs
 
+def test_choose_neighbors_from_list():
+    from engeo.cube import read_cube
+    from engeo.tutrast import TuTraSt, Basin
 
+    data, meta = read_cube("test/grid.cube")
+    ttst = TuTraSt(data)
+    all_points = np.array([
+        [0, 0, 1], # neighbor
+        [0, 0, 4], # neighbor
+        [0, 1, 0], # neighbor
+        [0, 3, 0], # neighbor
+        [1, 0, 0], # neighbor
+        [2, 0, 1], # not neighbor
+        ]
+    )
+
+    b = Basin(indeces=[0], shape=data.shape, sorted_coordinates=ttst.sorted_coordinates, coordinates_to_indices=ttst.coordinates_to_indices)
+
+    indxs = ttst.coordinates_to_indices(all_points)
+
+    neighbors, not_neighbors = b.choose_neighbors_from_list(indxs)
+    assert neighbors.size == 5
+    assert not_neighbors.size == 1
+    for nbr in neighbors:
+        assert nbr in [ 1, 51, 54, 28,  3]
+    for nnbr in not_neighbors:
+        assert nnbr in [32]
+
+    
     #the following test fails, no matter whether no, one or two lines of [1, 1, 0] are included
     #data, meta = read_cube("test/Cube_z_1.cube")
     #ttst = TuTraSt(data)
