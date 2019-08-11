@@ -15,3 +15,7 @@ ttst = TuTraSt(data, step=0.2)
 
 # find basins
 ttst.find_basins()
+
+# find transition states
+ttst.find_transition_states()
+print("Area: ", ttst.ts[0].area)

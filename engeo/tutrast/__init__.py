@@ -18,6 +18,10 @@ class Basin:
         self.sorted_values = sorted_values
         self.sorted_coordinates = sorted_coordinates
         self.tolerance = tolerance
+        self.ts = [] # list of transition states bind to this basin
+
+    def append_ts(self, ts):
+        self.ts.append(ts)
 
     def append(self, indices):
         self.indices.update(indices)
@@ -47,7 +51,7 @@ class Basin:
         return True if bsn1.get_neighbors_indices() & bsn2.indices else False
 
     def get_neighbors_indices(self):
-        """Gets coordinates of the bassin neighboring points."""
+        """Gets coordinates of the basin neighboring points."""
         potential_neighbors = set()
         for indx in self.indices:
             potential_neighbors.update(self.neighbors(indx))
@@ -79,6 +83,45 @@ class Basin:
     def max_index(self):
         return max(self.indices)
 
+class TransitionState:
+    # TODO: the TransitionState class is still under development, do not test
+    def __init__(self, basin1, basin2, ttst):
+        self.border = []
+        self.basin1 = basin1
+        self.basin2 = basin2
+        self.ttst = ttst
+        basin1.append_ts(self)
+        basin2.append_ts(self)
+        ts_indeces_bsn1 = basin2.get_neighbors_indices() & basin1.indices
+
+        # TODO, add a test that TS class makes the same border even if one exchanges
+        # basin1 and basin2
+        for border_point_1 in ts_indeces_bsn1:
+            nbrs = basin1.neighbors(border_point_1)
+            for border_point_2 in nbrs & basin1.indices:
+                self.border.append((border_point_1, border_point_2))
+    @property
+    def area(self):
+        """Computes the area of the Transition State"""
+        surface = 0
+
+        # extracting basins' indices
+        basin1_points = np.array(self.border)[:,0]
+        basin2_points = np.array(self.border)[:,1]
+
+        # getting their coordinates
+        basin1_coords = self.ttst.sorted_coordinates[basin1_points] # p1_coords should be a numpy array
+        basin2_coords = self.ttst.sorted_coordinates[basin2_points] # p2_coords should be a numpy array
+
+        # Getting the difference betweeen coordinates. Should be 1 or -1 for one coordinate only.
+        # The other coordinates should become 0
+        res = np.abs(basin1_coords - basin2_coords)
+        
+        # computing the surface
+        surface = res[:,0] * self.ttst.y_length * self.ttst.z_length + \
+                  self.ttst.x_length * res[:,1] * self.ttst.z_length + \
+                  self.ttst.x_length * self.ttst.y_length * res[:,1]
+        return np.sum(surface)
 
 class TuTraSt:
     KCAL_MOL_TO_HARTREE = 0.00159360109742136
@@ -97,6 +140,11 @@ class TuTraSt:
             conversion = self.EV_TO_HARTREE
         self.step = step * conversion
         data *= conversion
+
+        # TODO: replace with real values
+        self.x_length = 0.1
+        self.y_length = 0.2
+        self.z_length = 0.3
 
         # tolerance to merge basins
         self.basins_tolerance = self.step
@@ -121,7 +169,8 @@ class TuTraSt:
         self.sorted_coordinates = coordinates[self.forward_indx_permutation] # apply the same ordering to the
 
         # coordinates array
-        self.basins = [] # [[bassin 0 point flat indices], [bassin 1 point flat indices], ...]
+        self.basins = [] # [[basin 0 point flat indices], [basin 1 point flat indices], ...]
+        self.ts = [] # Transition States
 
     def _chunk_energy_and_indices(self):
         index_min=0
@@ -192,6 +241,14 @@ class TuTraSt:
             print("basin_{} {} elements".format(i, len(b.indices)))
             tot += len(b.indices)
         print(tot)
+
+    def find_transition_states(self):
+        for n_bsn1, bsn1 in enumerate(self.basins):
+            for n_bsn2 in range(n_bsn1+1, len(self.basins)): # loop over the other basins
+                bsn2 = self.basins[n_bsn2]
+                if bsn1.is_neighbor_with(bsn2):
+                    self.ts.append(TransitionState(bsn1, bsn2, self))
+
 
 
     def form_clusters(self, indices):
@@ -268,10 +325,5 @@ class TuTraSt:
         * go to permutation 3. and find element at position 2: 3
         * go to position 3 in 4.: 8
         """
-        # this variant turned out to be the fastest:
-        #indxs = np.array([c[0] * self.y_size * self.z_size + c[1] * self.z_size  + c[2] for c in coords])
-        #indxs = list(map(lambda c: c[0] * self.y_size * self.z_size + c[1] * self.z_size  + c[2], coords))
-        #print(type(coords))
-        #indxs = np.array(map(lambda c: c[0] * self.y_size * self.z_size + c[1] * self.z_size  + c[2], coords))
         indxs = coords[:, 0] * self.y_size * self.z_size + coords[:, 1] * self.z_size + coords[:, 2]
         return self.reverse_indx_permutation[indxs] # indices in the sorted array
