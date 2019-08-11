@@ -8,15 +8,15 @@ class Basin:
     """Class that works with basins. It only deals with the basin's geometry. Does not know
     anything about the data stored in it."""
     neighbor_operations = [(0,  1), (0, -1), (1,  1), (1, -1), (2,  1), (2, -1)]
-    def __init__(self, indices, shape, sorted_values, sorted_coordinates, coordinates_to_indices, tolerance=0.1):
+    def __init__(self, indices, ttst, tolerance=0.1):
         self.indices = set(indices)
         self.do_not_have_all_neighbors = set(indices)
-        self.x_size = shape[0]
-        self.y_size = shape[1]
-        self.z_size = shape[2]
-        self.coordinates_to_indices = coordinates_to_indices
-        self.sorted_values = sorted_values
-        self.sorted_coordinates = sorted_coordinates
+        self.x_size = ttst.x_size
+        self.y_size = ttst.y_size
+        self.z_size = ttst.z_size
+        self.coordinates_to_indices = ttst.coordinates_to_indices
+        self.sorted_values = ttst.flat_values
+        self.sorted_coordinates = ttst.sorted_coordinates
         self.tolerance = tolerance
         self.ts = [] # list of transition states bind to this basin
 
@@ -158,14 +158,14 @@ class TuTraSt:
         coordinates = coordinates.reshape(self.x_size*self.y_size*self.z_size, 3)
 
         # create flat Energy array
-        flat_e = data.flatten()
+        flat_values = data.flatten()
 
         # sort energy array and index array according to the energy values
-        self.forward_indx_permutation = np.argsort(flat_e) # order indices by energy
+        self.forward_indx_permutation = np.argsort(flat_values) # order indices by energy
         self.reverse_indx_permutation = np.argsort(self.forward_indx_permutation) # create back permutation array
 
         # make the array of energies and array of coordinates sorted by energy.
-        self.flat_e = flat_e[self.forward_indx_permutation] # apply new ordering to the energy array
+        self.flat_values = flat_values[self.forward_indx_permutation] # apply new ordering to the energy array
         self.sorted_coordinates = coordinates[self.forward_indx_permutation] # apply the same ordering to the
 
         # coordinates array
@@ -174,9 +174,9 @@ class TuTraSt:
 
     def _chunk_energy_and_indices(self):
         index_min=0
-        for i, energy in enumerate(self.flat_e):
-            if energy - self.flat_e[index_min] > self.step:
-                yield self.flat_e[index_min], np.array(range(index_min, i))
+        for i, energy in enumerate(self.flat_values):
+            if energy - self.flat_values[index_min] > self.step:
+                yield self.flat_values[index_min], np.array(range(index_min, i))
                 index_min = i
 
 
@@ -208,15 +208,7 @@ class TuTraSt:
             # (II) form clusters from the leftover elements in the flat_indices array
             # and add them as new basins
             for cluster in self.form_clusters(flat_indices):
-                self.basins.append(Basin(
-                                    indices=cluster,
-                                    shape=(self.x_size, self.y_size, self.z_size),
-                                    sorted_values=self.flat_e,
-                                    sorted_coordinates=self.sorted_coordinates,
-                                    coordinates_to_indices=self.coordinates_to_indices,
-                                    tolerance=self.basins_tolerance,
-                                )
-                            )
+                self.basins.append(Basin(indices=cluster, ttst=self,tolerance=self.basins_tolerance))
 
             # (III) merge too small basins into the big ones
             to_delete = []
